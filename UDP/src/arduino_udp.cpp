@@ -1,14 +1,14 @@
 /*
-  udp.cpp - Library for managing a udp connection
+  arduino_udp.cpp - Library for managing a udp connection
 */
 
-#include "g3ukb_udp.h"
+#include "arduino_udp.h"
 
 // ==============================================================
 // PUBLIC
 
 // Constructor
-G3UKB_UDP::G3UKB_UDP(byte *mac, byte *ip, unsigned int cmd_port, unsigned int evnt_port) {
+Arduino_UDP::Arduino_UDP(byte *mac, byte *ip, unsigned int cmd_port, unsigned int evnt_port) {
 
 	_cmd_port = cmd_port;
 	_evnt_port = evnt_port;
@@ -21,7 +21,7 @@ G3UKB_UDP::G3UKB_UDP(byte *mac, byte *ip, unsigned int cmd_port, unsigned int ev
 }
 
 // Read packet
-bool G3UKB_UDP::doRead(char* packet_buffer) {
+bool Arduino_UDP::doRead(char* packet_buffer) {
 	// Read the packet into packetBufffer
 	int packet_size = queryPacket();
 	if (packet_size > 0) {
@@ -34,7 +34,7 @@ bool G3UKB_UDP::doRead(char* packet_buffer) {
 }
 
 // Write response
-bool G3UKB_UDP::sendResponse(char* reply_buffer) {
+bool Arduino_UDP::sendResponse(char* reply_buffer) {
 	// Send a reply to the IP address and port that sent us the packet we received
 	_udp->beginPacket(_udp->remoteIP(), _udp->remotePort());
 	_udp->write(reply_buffer);
@@ -46,7 +46,7 @@ bool G3UKB_UDP::sendResponse(char* reply_buffer) {
 // PRIVATE
 
 // Data available?
-int G3UKB_UDP::queryPacket() {
+int Arduino_UDP::queryPacket() {
 	int packetSize = _udp->parsePacket();
 	  if (packetSize)
 	    return packetSize;
