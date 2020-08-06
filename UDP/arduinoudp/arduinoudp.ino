@@ -14,9 +14,6 @@ char  packet_buffer[128]; // Buffer to hold incoming packet,
 char  reply_buffer[128];                     // The response data
 Arduino_UDP *_udp;
 
-// UDP udp(mac, ip, localPort, eventPort);
-
-
 void setup() {
   // Start serial monitor
   Serial.begin(115200);
@@ -32,6 +29,7 @@ void loop() {
     // Wait for data
     while (true) {
        if (_udp->doRead(packet_buffer)) {
+          //Serial.println("Data");
           break;
        }
        delay(10);
