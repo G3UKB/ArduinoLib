@@ -14,7 +14,7 @@ Arduino_UDP::Arduino_UDP(byte *mac, byte *ip, unsigned int cmd_port, unsigned in
 	_evnt_port = evnt_port;
 
 	_udp = new EthernetUDP();
-	IPAddress _ip = new IPAddress(ip[0], ip[1], ip[2], ip[3]);
+	IPAddress _ip = IPAddress(ip[0], ip[1], ip[2], ip[3]);
 	// Start Ethernet and UDP:
 	Ethernet.begin(mac, _ip);
   	_udp->begin(_cmd_port);
@@ -48,6 +48,7 @@ bool Arduino_UDP::sendResponse(char* reply_buffer) {
 // Data available?
 int Arduino_UDP::queryPacket() {
 	int packetSize = _udp->parsePacket();
+  //Serial.println(packetSize);
 	  if (packetSize)
 	    return packetSize;
 	   else

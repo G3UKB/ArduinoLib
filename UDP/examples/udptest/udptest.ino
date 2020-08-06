@@ -1,4 +1,3 @@
-//#include <arduino_udp.h>
 #include "arduino_udp.h"
 
 byte mac[] = {
@@ -19,12 +18,27 @@ Arduino_UDP *_udp;
 
 
 void setup() {
+  // Start serial monitor
+  Serial.begin(115200);
+
+  // Create UDP instance
   _udp = new Arduino_UDP(mac, ip, localPort, eventPort);
 }
 
 void loop() {
-  _udp->doRead(packet_buffer);
-  strcpy(reply_buffer, packet_buffer);
-  _udp->sendResponse(reply_buffer);
-  exit(0);
+
+  // Test UDP
+  while (true) {
+    // Wait for data
+    while (true) {
+       if (_udp->doRead(packet_buffer)) {
+          //Serial.println("Data");
+          break;
+       }
+       delay(10);
+    }
+    // Copy request and return to sender
+    strcpy(reply_buffer, packet_buffer);
+    _udp->sendResponse(reply_buffer);
+  }
 }

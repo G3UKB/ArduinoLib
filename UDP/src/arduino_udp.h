@@ -20,7 +20,6 @@ class Arduino_UDP
 
   private:
   	// Net info
-	IPAddress *_ip;
 	int _cmd_port;
 	int _evnt_port;
 	EthernetUDP *_udp;
