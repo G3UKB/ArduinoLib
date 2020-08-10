@@ -13,6 +13,8 @@ class Arduino_Motor
     Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev);
 
 	// Public method prototypes
+  void set_speed(int new_speed);
+  void set_backoff_speed(int new_speed);
 	bool calibrate();
   bool move_to_home();
   bool move_to_position(int deg);
@@ -24,6 +26,10 @@ class Arduino_Motor
   int __sensor;
   int __limit_fwd;
   int __limit_rev;
+
+  // Speed
+  int __speed;
+  int __backoff_speed;
 
   // Instance vars
   bool __calibrated;

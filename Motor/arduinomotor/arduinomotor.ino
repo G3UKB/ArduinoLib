@@ -20,5 +20,5 @@ void loop() {
   delay(3000);
   __motor->move_to_home();
 
-  exit(0);
+  delay(5000);
 }
