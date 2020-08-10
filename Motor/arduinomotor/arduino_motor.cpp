@@ -2,10 +2,14 @@
   arduino_motor.cpp - Library for managing a DC motor with encoder
 */
 
-#include "arduino_udp.h"
+#include "arduino_motor.h"
 
 // ==============================================================
 // PUBLIC
+
+// Constants
+const int PLUS = 0;
+const int MINUS = 1;
 
 // Constructor
 Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev) {
@@ -13,7 +17,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   // Pin allocations
   __direction = dir;
   __pwm = pwm;
-  __sensor = densor;
+  __sensor = sensor;
   __limit_fwd = limit_fwd;
   __limit_rev = limit_rev;
 
@@ -27,12 +31,15 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   digitalWrite(__limit_fwd, HIGH);
   digitalWrite(__limit_rev, HIGH);
   digitalWrite(__sensor, HIGH);
+
+  // Init vars
+  __calibrated = false;
 }
 
 // ------------------------------------
 // Calibrate the motor
 // Count number of pulses between limits
- int Arduino_Motor::calibrate() {
+ bool Arduino_Motor::calibrate() {
   int num_pulses;
   // This leaves the motor at 'home' which is 0 deg (fully reversed)
   // ready for forward 0-359 deg.
@@ -41,7 +48,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
 
   //----------------
   // Run forward at moderate speed until we hit forward limit switch
-  forward(20);
+  __forward(20);
   __wait_fwd_limit();
   __stop();
   delay(500);
@@ -54,13 +61,13 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   //----------------
   // Now start counting
   // Reset counters
-  pulseA_az = 0;
+  __pulse_cnt = 0;
   // Run reverse at slowish speed until we hit reverse limit switch
   __reverse(20);
   // Wait for reverse limit switch and accumulate pulse count
   while(__test_not_rev_limit()) {
     if(__read_sensor()) {
-      pulseA_az++;
+      __pulse_cnt++;
     }
   }
   __stop();
@@ -69,8 +76,8 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   //----------------
   // Remember initial total number of pulses and reset counters
   // This is from just released forward switch to activated reverse switch
-  num_pulses = pulseA_az;
-  pulseA_az = 0;
+  num_pulses = __pulse_cnt;
+  __pulse_cnt = 0;
 
   //----------------
   // Now back off until reverse switch releases
@@ -78,7 +85,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   // Wait for reverse limit switch off and accumulate pulse count
   while(__test_rev_limit()) {
     if(__read_sensor()) {
-      pulseA_az++;
+      __pulse_cnt++;
     }
   }
   __stop();
@@ -87,17 +94,22 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   //----------------
   // Subtract the number of pulses we backed off by
   // Save total number of pulses between just released switches
-  num_pulses_az = num_pulses - pulseA_az;
+  __num_pulses = num_pulses - __pulse_cnt;
+  __pulses_per_degree = ((float)__num_pulses/360.0);
+  
   Serial.print("Num pulses az: ");
-  Serial.println(num_pulses_az);
-  pulseA_az = 0;
+  Serial.println(__num_pulses);
+  __pulse_cnt = 0;
+
+  __calibrated = true;
+  return true;
  }
 
 // ------------------------------------
 // Move to home position
-void Arduino_Motor::move_to_home() {
+bool Arduino_Motor::move_to_home() {
   //----------------
-  if(calibrated) {
+  if(__calibrated) {
     // Run forward at moderate speed until we hit forward limit switch
     __forward(20);
     __wait_fwd_limit();
@@ -109,26 +121,27 @@ void Arduino_Motor::move_to_home() {
     __stop();
     delay(500);
   }
+  return true;
 }
 
 // ------------------------------------
 // Move to given position
-void Arduino_Motor::__move_to_position(int deg) {
+bool Arduino_Motor::move_to_position(int deg) {
   // Local context
   int current_degrees;
   int degrees_to_move;
   int direction_to_move;
+  int pulses_to_move;
   float pulses_per_degree;
 
   //----------------
-  if(calibrated) {
+  if(__calibrated) {
     // Have calibration
     // Parameter check and assign locals
-    current_degrees = degrees_az;
-    pulses_per_degree = pulses_per_degree_az;
+    current_degrees = __degrees;
+    pulses_per_degree = __pulses_per_degree;
     if (deg < 0 or deg > 360){
-      strcpy(replyBuffer, "nak:Azimuth out of range");
-      return;
+      return false;
     }
 
     //----------------
@@ -164,11 +177,12 @@ void Arduino_Motor::__move_to_position(int deg) {
     __stop();
     //----------------
     // Set new position 
-    degrees_az = deg;
+    __degrees = deg;
   } else {
     // Not calibrated
-    strcpy(replyBuffer, "nak:Not calibrated!");
+    return false;
   }
+  return true;
 }
 
 // ==============================================================
@@ -265,7 +279,7 @@ void Arduino_Motor::__wait_not_rev_limit() {
 // ------------------------------------
 // Read sensor
 bool Arduino_Motor::__read_sensor() {
-  if(digitalRead(__sens)) {
+  if(digitalRead(__sensor)) {
     while (digitalRead(__sensor)) {
       delayMicroseconds(10);
     }

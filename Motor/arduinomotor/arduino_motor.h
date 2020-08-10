@@ -24,6 +24,13 @@ class Arduino_Motor
   int __sensor;
   int __limit_fwd;
   int __limit_rev;
+
+  // Instance vars
+  bool __calibrated;
+  int __pulse_cnt;
+  int __num_pulses;
+  int __degrees;
+  float __pulses_per_degree;
   
 	// Private method prototypes
 	void __forward(int fwd_speed);
