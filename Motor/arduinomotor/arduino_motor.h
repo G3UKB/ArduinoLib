@@ -11,6 +11,7 @@ class Arduino_Motor
 {
   public:
     Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev);
+    Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev);
 
 	// Public method prototypes
   void set_speed(int new_speed);
@@ -26,12 +27,14 @@ class Arduino_Motor
   int __sensor;
   int __limit_fwd;
   int __limit_rev;
-
+  int __limit_fwd_rev;
+  
   // Speed
   int __speed;
   int __backoff_speed;
 
   // Instance vars
+  int __type;
   bool __calibrated;
   int __pulse_cnt;
   int __num_pulses;

@@ -10,10 +10,15 @@
 // Constants
 const int PLUS = 0;
 const int MINUS = 1;
+const int TYPE_M_SW = 0;
+const int TYPE_OPT = 1;
 
 // Constructor
 Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev) {
 
+  // We have micro-switches for forward and reverse
+  __type = TYPE_M_SW;
+  
   // Pin allocations
   __direction = dir;
   __pwm = pwm;
@@ -39,6 +44,36 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   __backoff_speed = 100;
 }
 
+Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
+
+  // We have one optical switch for forward and reverse
+  __type = TYPE_OPT;
+  
+  // Pin allocations
+  __direction = dir;
+  __pwm = pwm;
+  __sensor = sensor;
+  __limit_fwd_rev = limit_fwd_rev;
+  // Set both to same pin
+  __limit_fwd = __limit_fwd_rev;
+  __limit_rev = __limit_fwd_rev;
+
+  // Initialise pins
+  pinMode(__direction, OUTPUT);
+  pinMode(__pwm, OUTPUT);
+  pinMode(__limit_fwd_rev, INPUT);
+  pinMode(__sensor, INPUT);
+  // Enable internal pullups on switches
+  digitalWrite(__limit_fwd_rev, HIGH);
+  digitalWrite(__sensor, HIGH);
+
+  // Init vars
+  __calibrated = false;
+  // Default speeds
+  __speed = 100;
+  __backoff_speed = 100;
+}
+
 // ------------------------------------
 // Set speed
  void Arduino_Motor::set_speed(int new_speed) {
@@ -48,6 +83,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
  void Arduino_Motor::set_backoff_speed(int new_speed) {
     __backoff_speed = new_speed;
  }
+ 
 // ------------------------------------
 // Calibrate the motor
 // Count number of pulses between limits
@@ -60,6 +96,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
 
   //----------------
   // Run forward at moderate speed until we hit forward limit switch
+  //if(__type == TYPE_ && __test_fwd_limit)
   __forward(__speed);
   __wait_fwd_limit();
   __stop();
@@ -113,6 +150,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   Serial.println(__num_pulses);
   __pulse_cnt = 0;
   __calibrated = true;
+  __degrees = 0;
   
   return true;
  }
@@ -127,11 +165,14 @@ bool Arduino_Motor::move_to_home() {
     __wait_fwd_limit();
     __stop();
     delay(500);
-    // Back off until forward switch just releases
-    __reverse(__backoff_speed);
-    __wait_not_fwd_limit();
-    __stop();
-    delay(500);
+    if (__type == TYPE_M_SW) {
+      // Back off until forward switch just releases
+      __reverse(__backoff_speed);
+      __wait_not_fwd_limit();
+      __stop();
+      delay(500);
+      __degrees = 0;
+    }
   }
   return true;
 }
@@ -169,6 +210,7 @@ bool Arduino_Motor::move_to_position(int deg) {
     pulses_to_move = (int)(pulses_per_degree * (float)degrees_to_move);
     if (direction_to_move == PLUS) {
       __forward(__speed);
+      delay(500);
       while(__test_not_fwd_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
@@ -178,6 +220,7 @@ bool Arduino_Motor::move_to_position(int deg) {
       }
     } else {
       __reverse(__speed);
+      delay(500);
       while(__test_not_rev_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
@@ -203,8 +246,6 @@ bool Arduino_Motor::move_to_position(int deg) {
 // ------------------------------------
 // Run forward at geven speed
 void Arduino_Motor::__forward(int fwd_speed) {
-  Serial.print("Forward: ");
-  Serial.println(fwd_speed);
   digitalWrite(__direction, HIGH);
   analogWrite(__pwm, fwd_speed);
 }

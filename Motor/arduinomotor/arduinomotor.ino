@@ -8,17 +8,22 @@ void setup() {
 
   // Create UDP instance
   // Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev)
-  __motor = new Arduino_Motor(22,4,30,24,25);
+  //__motor = new Arduino_Motor(22,4,30,24,25);
+  __motor = new Arduino_Motor(22,4,30,24);
 }
 
 void loop() {
 
   // Test motor
+  Serial.println("Calibrate");
   __motor->calibrate();
   delay(3000);
+  Serial.println("Position 180");
   __motor->move_to_position(180);
   delay(3000);
+  Serial.println("Home");
   __motor->move_to_home();
 
   delay(5000);
+  
 }
