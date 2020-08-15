@@ -17,10 +17,16 @@ void loop() {
   // Test motor
   Serial.println("Calibrate");
   __motor->calibrate();
-  delay(3000);
+  delay(2000);
+  Serial.println("Position 90");
+  __motor->move_to_position(90);
+  delay(2000);
   Serial.println("Position 180");
   __motor->move_to_position(180);
-  delay(3000);
+  delay(2000);
+  Serial.println("Position 270");
+  __motor->move_to_position(270);
+  delay(2000);
   Serial.println("Home");
   __motor->move_to_home();
 
