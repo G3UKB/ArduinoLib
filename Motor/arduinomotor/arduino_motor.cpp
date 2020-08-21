@@ -76,12 +76,12 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
 
 // ------------------------------------
 // Set speed
- void Arduino_Motor::set_speed(int new_speed) {
-    __speed = new_speed;
+ void Arduino_Motor::set_speed(int duty_cycle) {
+    __speed = (int)(((float)duty_cycle/100.0) * 255);
  }
 
- void Arduino_Motor::set_backoff_speed(int new_speed) {
-    __backoff_speed = new_speed;
+ void Arduino_Motor::set_backoff_speed(int duty_cycle) {
+    __backoff_speed = (int)(((float)duty_cycle/100.0) * 255);;
  }
  
 // ------------------------------------

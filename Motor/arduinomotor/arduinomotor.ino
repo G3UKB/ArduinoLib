@@ -22,10 +22,10 @@ void loop() {
 
   // Test motor
   Serial.println("Calibrate");
-  __motor_az->set_speed(100);
-  __motor_az->set_backoff_speed(100);
-  __motor_el->set_speed(100);
-  __motor_el->set_backoff_speed(100);
+  __motor_az->set_speed(25);
+  __motor_az->set_backoff_speed(25);
+  __motor_el->set_speed(25);
+  __motor_el->set_backoff_speed(25);
   
   //__motor_az->calibrate();
   __motor_el->calibrate();
