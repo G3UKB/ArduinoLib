@@ -14,8 +14,7 @@ const int TYPE_M_SW = 0;
 const int TYPE_OPT = 1;
 
 // Constructor
-Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev) {
-
+Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span) {
   // We have micro-switches for forward and reverse
   __type = TYPE_M_SW;
   
@@ -25,6 +24,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   __sensor = sensor;
   __limit_fwd = limit_fwd;
   __limit_rev = limit_rev;
+  __span = span;
 
   // Initialise pins
   pinMode(__direction, OUTPUT);
@@ -44,8 +44,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   __backoff_speed = 100;
 }
 
-Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
-
+Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
   // We have one optical switch for forward and reverse
   __type = TYPE_OPT;
   
@@ -57,6 +56,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
   // Set both to same pin
   __limit_fwd = __limit_fwd_rev;
   __limit_rev = __limit_fwd_rev;
+  __span = span;
 
   // Initialise pins
   pinMode(__direction, OUTPUT);
@@ -88,15 +88,14 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
 // Calibrate the motor
 // Count number of pulses between limits
  bool Arduino_Motor::calibrate() {
-  int num_pulses;
+  volatile int num_pulses = 0;
   // This leaves the motor at 'home' which is 0 deg (fully reversed)
-  // ready for forward 0-359 deg.
+  // ready for forward 0-span deg.
   // We want the normal travel to avoid the limit switches as they cause over-travel
   // so we count between just released limit switches
 
   //----------------
   // Run forward at moderate speed until we hit forward limit switch
-  //if(__type == TYPE_ && __test_fwd_limit)
   __forward(__speed);
   __wait_fwd_limit();
   __stop();
@@ -144,10 +143,12 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev) {
   // Subtract the number of pulses we backed off by
   // Save total number of pulses between just released switches
   __num_pulses = num_pulses - __pulse_cnt;
-  __pulses_per_degree = ((float)__num_pulses/360.0);
+  __pulses_per_degree = ((float)__num_pulses/(float)__span);
   
   Serial.print("Num pulses: ");
   Serial.println(__num_pulses);
+  Serial.print("Pulses per degree: ");
+  Serial.println(__pulses_per_degree);
   __pulse_cnt = 0;
   __calibrated = true;
   __degrees = 0;
@@ -180,11 +181,11 @@ bool Arduino_Motor::move_to_home() {
 // Move to given position
 bool Arduino_Motor::move_to_position(int deg) {
   // Local context
-  int current_degrees;
-  int degrees_to_move;
-  int direction_to_move;
-  int pulses_to_move;
-  float pulses_per_degree;
+  volatile int current_degrees;
+  volatile int degrees_to_move;
+  volatile int direction_to_move;
+  volatile int pulses_to_move;
+  volatile float pulses_per_degree;
 
   //----------------
   if(__calibrated) {
@@ -192,7 +193,7 @@ bool Arduino_Motor::move_to_position(int deg) {
     // Parameter check and assign locals
     current_degrees = __degrees;
     pulses_per_degree = __pulses_per_degree;
-    if (deg < 0 or deg > 360){
+    if (deg < 0 or deg > __span){
       return false;
     }
 
@@ -210,7 +211,7 @@ bool Arduino_Motor::move_to_position(int deg) {
     //Serial.println(degrees_to_move);
     //Serial.println(pulses_to_move);
     if (direction_to_move == PLUS) {
-      __forward(__speed);;
+      __forward(__speed);
       while(__test_not_fwd_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
@@ -243,7 +244,7 @@ bool Arduino_Motor::move_to_position(int deg) {
 // PRIVATE
 
 // ------------------------------------
-// Run forward at geven speed
+// Run forward at given speed
 void Arduino_Motor::__forward(int fwd_speed) {
   digitalWrite(__direction, HIGH);
   analogWrite(__pwm, fwd_speed);
@@ -333,11 +334,13 @@ void Arduino_Motor::__wait_not_rev_limit() {
 // ------------------------------------
 // Read sensor
 bool Arduino_Motor::__read_sensor() {
-  if(digitalRead(__sensor)) {
-    while (digitalRead(__sensor)) {
-      delayMicroseconds(10);
+  // Wait for next pulse
+  if (!digitalRead(__sensor)) {
+    while (!digitalRead(__sensor)) {
     }
-    return true;
   }
-  return false;
+  // Wait for end of pulse
+  while (digitalRead(__sensor)) {
+  }
+    return true;
 }
