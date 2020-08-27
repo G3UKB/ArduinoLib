@@ -10,13 +10,14 @@
 class Arduino_Motor
 {
   public:
-    Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span);
-    Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, int span);
+    Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span);
+    Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span);
 
 	// Public method prototypes
   void set_speed(int new_speed);
   void set_backoff_speed(int new_speed);
-	bool calibrate();
+	int calibrate();
+  void set_cal(int num_pulses);
   bool move_to_home();
   bool move_to_position(int deg);
  
@@ -29,6 +30,7 @@ class Arduino_Motor
   int __limit_rev;
   int __limit_fwd_rev;
   int __span;
+  void (*__event_func)(int position);
   
   // Speed
   int __speed;
@@ -57,7 +59,8 @@ class Arduino_Motor
   void __wait_not_rev_limit();
 
   bool __read_sensor();
-  
+
+  void __do_event(int current_degrees, int deg, int num_pulses, int pulses_to_move);
 };
 
 #endif

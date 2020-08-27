@@ -14,7 +14,8 @@ const int TYPE_M_SW = 0;
 const int TYPE_OPT = 1;
 
 // Constructor
-Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span) {
+Arduino_Motor::Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span) {
+  
   // We have micro-switches for forward and reverse
   __type = TYPE_M_SW;
   
@@ -25,6 +26,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   __limit_fwd = limit_fwd;
   __limit_rev = limit_rev;
   __span = span;
+  __event_func = func;
 
   // Initialise pins
   pinMode(__direction, OUTPUT);
@@ -44,7 +46,8 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd, int li
   __backoff_speed = 100;
 }
 
-Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
+Arduino_Motor::Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
+  
   // We have one optical switch for forward and reverse
   __type = TYPE_OPT;
   
@@ -57,6 +60,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, in
   __limit_fwd = __limit_fwd_rev;
   __limit_rev = __limit_fwd_rev;
   __span = span;
+  __event_func = func;
 
   // Initialise pins
   pinMode(__direction, OUTPUT);
@@ -83,11 +87,20 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, in
  void Arduino_Motor::set_backoff_speed(int duty_cycle) {
     __backoff_speed = (int)(((float)duty_cycle/100.0) * 255);;
  }
+
+// ------------------------------------
+// Set calibration
+ void Arduino_Motor::set_cal(int num_pulses) {
+  __num_pulses = num_pulses;
+  __pulse_cnt = 0;
+  __calibrated = true;
+  __degrees = 0;
+ }
  
 // ------------------------------------
 // Calibrate the motor
 // Count number of pulses between limits
- bool Arduino_Motor::calibrate() {
+ int Arduino_Motor::calibrate() {
   volatile int num_pulses = 0;
   // This leaves the motor at 'home' which is 0 deg (fully reversed)
   // ready for forward 0-span deg.
@@ -153,7 +166,7 @@ Arduino_Motor::Arduino_Motor(int dir, int pwm, int sensor, int limit_fwd_rev, in
   __calibrated = true;
   __degrees = 0;
   
-  return true;
+  return __num_pulses;
  }
 
 // ------------------------------------
@@ -184,6 +197,7 @@ bool Arduino_Motor::move_to_position(int deg) {
   volatile int current_degrees;
   volatile int degrees_to_move;
   volatile int direction_to_move;
+  volatile int num_pulses;
   volatile int pulses_to_move;
   volatile float pulses_per_degree;
 
@@ -208,6 +222,7 @@ bool Arduino_Motor::move_to_position(int deg) {
     // Move to new position  
     degrees_to_move = abs(current_degrees - deg);
     pulses_to_move = (int)(pulses_per_degree * (float)degrees_to_move);
+    num_pulses = pulses_to_move;
     //Serial.println(degrees_to_move);
     //Serial.println(pulses_to_move);
     if (direction_to_move == PLUS) {
@@ -215,6 +230,7 @@ bool Arduino_Motor::move_to_position(int deg) {
       while(__test_not_fwd_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
+            __do_event(current_degrees, deg, num_pulses, pulses_to_move);
             if (pulses_to_move <= 0)
               break;
         }
@@ -224,6 +240,7 @@ bool Arduino_Motor::move_to_position(int deg) {
       while(__test_not_rev_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
+            __do_event(current_degrees, deg, num_pulses, pulses_to_move);
             if (pulses_to_move <= 0)
               break;
         }
@@ -343,4 +360,18 @@ bool Arduino_Motor::__read_sensor() {
   while (digitalRead(__sensor)) {
   }
     return true;
+}
+
+// ------------------------------------
+// Calculate current degrees and dispatch status event
+void Arduino_Motor::__do_event(int current_degrees, int deg, int num_pulses, int pulses_to_move) {
+  int idegrees;
+  
+  if (deg > current_degrees) {
+    // Moving forward
+    idegrees = current_degrees + ((int)((float)(num_pulses - pulses_to_move) / __pulses_per_degree));
+  } else {
+    idegrees = current_degrees - ((int)((float)(num_pulses - pulses_to_move) / __pulses_per_degree));
+  }
+  __event_func(idegrees);
 }

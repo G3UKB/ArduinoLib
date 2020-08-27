@@ -17,6 +17,7 @@ class Arduino_UDP
 	// Method prototypes
 	bool doRead(char* packet_buffer);
 	bool sendResponse(char* reply_buffer);
+  bool sendEvent(char* evnt_buffer);
 
   private:
   	// Net info

@@ -42,6 +42,15 @@ bool Arduino_UDP::sendResponse(char* reply_buffer) {
 	return true;
 }
 
+// Write event
+bool Arduino_UDP::sendEvent(char* evnt_buffer) {
+  // Send an event to the event port of the IP address that sent us the packet we received
+  _udp->beginPacket(_udp->remoteIP(), _evnt_port);
+  _udp->write(evnt_buffer);
+  _udp->endPacket();
+  return true;
+}
+
 // ==============================================================
 // PRIVATE
 
