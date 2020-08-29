@@ -10,14 +10,12 @@
 // Constants
 const int PLUS = 0;
 const int MINUS = 1;
-const int TYPE_M_SW = 0;
-const int TYPE_OPT = 1;
 
 // Constructor
-Arduino_Motor::Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span) {
+Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span) {
   
-  // We have micro-switches for forward and reverse
-  __type = TYPE_M_SW;
+  // Set type
+  __type = t;
   
   // Pin allocations
   __direction = dir;
@@ -46,10 +44,10 @@ Arduino_Motor::Arduino_Motor(void (*func)(int position), int dir, int pwm, int s
   __backoff_speed = 100;
 }
 
-Arduino_Motor::Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
+Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
   
-  // We have one optical switch for forward and reverse
-  __type = TYPE_OPT;
+  // Set type
+  __type = t;
   
   // Pin allocations
   __direction = dir;

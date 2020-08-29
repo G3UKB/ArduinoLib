@@ -10,8 +10,8 @@
 class Arduino_Motor
 {
   public:
-    Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span);
-    Arduino_Motor(void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span);
+    Arduino_Motor(int t, void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd, int limit_rev, int span);
+    Arduino_Motor(int t, void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span);
 
 	// Public method prototypes
   void set_speed(int new_speed);
