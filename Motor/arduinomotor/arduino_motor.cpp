@@ -90,6 +90,7 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
 // Set calibration
  void Arduino_Motor::set_cal(int num_pulses) {
   __num_pulses = num_pulses;
+  __pulses_per_degree = ((float)__num_pulses/(float)__span);
   __pulse_cnt = 0;
   __calibrated = true;
   __degrees = 0;
@@ -163,7 +164,7 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   __pulse_cnt = 0;
   __calibrated = true;
   __degrees = 0;
-  
+  __event_func(0);
   return __num_pulses;
  }
 
@@ -183,6 +184,7 @@ bool Arduino_Motor::move_to_home() {
     __stop();
     delay(500);
     __degrees = 0;
+    __event_func(0);
     return true;
   }
   return false;
