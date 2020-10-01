@@ -17,6 +17,8 @@ class Arduino_Motor
   void set_speed(int new_speed);
   void set_backoff_speed(int new_speed);
 	int calibrate();
+  int calibrate_fwd();
+  int calibrate_rev();
   void set_cal(int num_pulses);
   bool move_to_home();
   bool move_to_position(int deg);
@@ -50,13 +52,13 @@ class Arduino_Motor
   void __stop();
   bool __test_fwd_limit();
   bool __test_not_fwd_limit();
-  void __wait_fwd_limit();
-  void __wait_not_fwd_limit();
+  bool __wait_fwd_limit();
+  bool __wait_not_fwd_limit();
   
   bool __test_rev_limit();
   bool __test_not_rev_limit();
-  void __wait_rev_limit();
-  void __wait_not_rev_limit();
+  bool __wait_rev_limit();
+  bool __wait_not_rev_limit();
 
   bool __read_sensor();
 

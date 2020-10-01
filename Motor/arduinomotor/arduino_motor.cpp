@@ -95,11 +95,111 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   __calibrated = true;
   __degrees = 0;
  }
- 
+
 // ------------------------------------
 // Calibrate the motor
 // Count number of pulses between limits
  int Arduino_Motor::calibrate() {
+
+  int cal, cal_fwd, cal_rev;
+
+  // We do two runs, counting forward and counting reverse
+  // These are usually different by maybe 70 pulses on a full 360.
+  // We take the average of the runs and use as the count.
+  cal_fwd = calibrate_fwd();
+  if (cal_fwd == -1) return -1;
+  delay(500);
+  cal_rev = calibrate_rev();
+  if (cal_rev == -1) return -1;
+  
+  // Use average
+  cal = (cal_fwd + cal_rev)/2;
+  __pulse_cnt = 0;
+  __calibrated = true;
+  __degrees = 0;
+  __num_pulses = cal;
+  __pulses_per_degree = ((float)__num_pulses/(float)__span);
+  __event_func(0);
+  Serial.print("Pulses: fwd, rev, final, per-degree");
+  Serial.println(cal_fwd);
+  Serial.println(cal_rev);
+  Serial.println(cal);
+  Serial.println(__pulses_per_degree);
+  return cal;
+ }
+
+ // ------------------------------------
+// Calibrate the motor in the forward direction
+// Count number of pulses between limits
+ int Arduino_Motor::calibrate_fwd() {
+  volatile int num_pulses = 0;
+  // This leaves the motor at 'max' which is 360/90 deg (fully forward)
+  // We want the normal travel to avoid the limit switches as they cause over-travel
+  // so we count between just released limit switches
+
+  //----------------
+  // Run reverse at moderate speed until we hit reverse limit switch
+  __reverse(__speed);
+  if (!__wait_rev_limit()) {
+    __stop();
+    return -1;
+  }
+  __stop();
+  delay(500);
+  // Back off until reverse switch just releases
+  __forward(__backoff_speed);
+  if (!__wait_not_rev_limit()) {
+    __stop();
+    return -1;
+  }
+  __stop();
+  delay(500);
+
+  //----------------
+  // Now start counting
+  // Reset counters
+  __pulse_cnt = 0;
+  // Run forward at slowish speed until we hit forward limit switch
+  __forward(__speed);
+  // Wait for reverse limit switch and accumulate pulse count
+  while(__test_not_fwd_limit()) {
+    if(__read_sensor()) {
+      __pulse_cnt++;
+    }
+  }
+  __stop();
+  delay(500);
+
+  //----------------
+  // Remember initial total number of pulses and reset counters
+  // This is from just released forward switch to activated reverse switch
+  num_pulses = __pulse_cnt;
+  __pulse_cnt = 0;
+
+  //Serial.print("Initial num fwd pulses: ");
+  //Serial.println(num_pulses);
+  
+  //----------------
+  // Now back off until forward switch releases
+  __reverse(__backoff_speed);
+  // Wait for reverse limit switch off and accumulate pulse count
+  while(__test_fwd_limit()) {
+    if(__read_sensor()) {
+      __pulse_cnt++;
+    }
+  }
+  __stop();
+
+  //----------------
+  // Subtract the number of pulses we backed off by
+  // Return total number of pulses between just released limits
+  return num_pulses - __pulse_cnt;
+ }
+ 
+// ------------------------------------
+// Calibrate the motor in the reverse directiom
+// Count number of pulses between limits
+ int Arduino_Motor::calibrate_rev() {
   volatile int num_pulses = 0;
   // This leaves the motor at 'home' which is 0 deg (fully reversed)
   // ready for forward 0-span deg.
@@ -109,12 +209,18 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   //----------------
   // Run forward at moderate speed until we hit forward limit switch
   __forward(__speed);
-  __wait_fwd_limit();
+  if (!__wait_fwd_limit()) {
+    __stop();
+    return -1;
+  }
   __stop();
   delay(500);
   // Back off until forward switch just releases
   __reverse(__backoff_speed);
-  __wait_not_fwd_limit();
+  if (!__wait_not_fwd_limit()) {
+    __stop();
+    return -1;
+  }
   __stop();
   delay(500);
 
@@ -139,6 +245,9 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   num_pulses = __pulse_cnt;
   __pulse_cnt = 0;
 
+  //Serial.print("Initial num rev pulses: ");
+  //Serial.println(num_pulses);
+  
   //----------------
   // Now back off until reverse switch releases
   __forward(__backoff_speed);
@@ -149,25 +258,13 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
     }
   }
   __stop();
-  delay(500);
   
   //----------------
   // Subtract the number of pulses we backed off by
-  // Save total number of pulses between just released switches
-  __num_pulses = num_pulses - __pulse_cnt;
-  __pulses_per_degree = ((float)__num_pulses/(float)__span);
-  
-  Serial.print("Num pulses: ");
-  Serial.println(__num_pulses);
-  Serial.print("Pulses per degree: ");
-  Serial.println(__pulses_per_degree);
-  __pulse_cnt = 0;
-  __calibrated = true;
-  __degrees = 0;
-  __event_func(0);
-  return __num_pulses;
+  // Return total number of pulses between just released limits
+  return  num_pulses - __pulse_cnt;
  }
-
+ 
 // ------------------------------------
 // Move to home position
 bool Arduino_Motor::move_to_home() {
@@ -175,12 +272,18 @@ bool Arduino_Motor::move_to_home() {
   if(__calibrated) {
     // Run reverse at moderate speed until we hit reverse limit switch
     __reverse(__speed);
-    __wait_rev_limit();
+    if (!__wait_rev_limit()) {
+      __stop();
+      return false;
+    }
     __stop();
     delay(500);
     // Back off until reverse switch just releases
     __forward(__backoff_speed);
-    __wait_not_rev_limit();
+    if (!__wait_not_rev_limit()) {
+      __stop();
+      return false;
+    }
     __stop();
     delay(500);
     __degrees = 0;
@@ -200,7 +303,7 @@ bool Arduino_Motor::move_to_position(int deg) {
   volatile int num_pulses;
   volatile int pulses_to_move;
   volatile float pulses_per_degree;
-
+  
   //----------------
   if(__calibrated) {
     // Have calibration
@@ -223,14 +326,22 @@ bool Arduino_Motor::move_to_position(int deg) {
     degrees_to_move = abs(current_degrees - deg);
     pulses_to_move = (int)(pulses_per_degree * (float)degrees_to_move);
     num_pulses = pulses_to_move;
+    //Serial.println("Deg, Pulses, Direction, Fwd, Rev");
     //Serial.println(degrees_to_move);
     //Serial.println(pulses_to_move);
+    //Serial.println(direction_to_move);
+    //Serial.println(__test_not_fwd_limit());
+    //Serial.println(__test_not_rev_limit());
     if (direction_to_move == PLUS) {
       __forward(__speed);
       while(__test_not_fwd_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
+            //Serial.print("Before fwd: ");
+            //Serial.println(pulses_to_move);
             __do_event(current_degrees, deg, num_pulses, pulses_to_move);
+            //Serial.print("After fwd: ");
+            //Serial.println(pulses_to_move);
             if (pulses_to_move <= 0)
               break;
         }
@@ -240,7 +351,11 @@ bool Arduino_Motor::move_to_position(int deg) {
       while(__test_not_rev_limit()) {
         if(__read_sensor()) {
             pulses_to_move--;
+            //Serial.print("Before rev: ");
+            //Serial.println(pulses_to_move);
             __do_event(current_degrees, deg, num_pulses, pulses_to_move);
+            //Serial.print("After rev: ");
+            //Serial.println(pulses_to_move);
             if (pulses_to_move <= 0)
               break;
         }
@@ -250,6 +365,26 @@ bool Arduino_Motor::move_to_position(int deg) {
     //----------------
     // Set new position 
     __degrees = deg;
+
+    // Although the calibration should be between points that are clear of
+    // the limits we could have ended up with the limit activated. We must move away
+    // we either won't move or will end up rotating twice in the same direction!
+    // This should only occur if using a single limit switch for both directions.
+    //Serial.println(direction_to_move);
+    //Serial.println(__test_fwd_limit());
+    if ((direction_to_move == PLUS) && (__test_fwd_limit())) {
+      Serial.println("Nudge reverse");
+      // Move reverse a little to clear the switch
+      __reverse(__speed);
+      __wait_not_fwd_limit();
+      __stop();
+      } else if ((direction_to_move == MINUS) && (__test_rev_limit())) {
+        Serial.println("Nudge forward");
+        // Move forward a little to clear the switch
+        __forward(__speed);
+        __wait_not_rev_limit();
+        __stop();
+    }
   } else {
     // Not calibrated
     return false;
@@ -291,10 +426,25 @@ bool Arduino_Motor::__test_fwd_limit() {
 
 // ------------------------------------
 // Wait for forward limit switch
-void Arduino_Motor::__wait_fwd_limit() {
+// In this and all other waits we need a failsafe exit. Its possible due to 
+// incorrect wiring or a software error (especially during testing) that we
+// are moving the motor the wrong way or waiting for the wrong limit switch
+// to close. In this case we will try and destroy the switch or motor.
+// To aleviate this we always check for the other limit switch and immediately
+// stop the motor.
+bool Arduino_Motor::__wait_fwd_limit() {
+  int count = 20000; // 20 second timeout
   while (digitalRead(__limit_fwd)) {
     delay (1);
+    if (__test_rev_limit()) {
+      Serial.println("Detected reverse limit switch waiting for forward limit switch!");
+      __stop();
+      return false;
+    }
+    --count;
+    if (count <= 0) return false;
   }
+  return true;
 }
 
 // ------------------------------------
@@ -308,10 +458,19 @@ bool Arduino_Motor::__test_rev_limit() {
 
 // ------------------------------------
 // Wait for reverse limit switch
-void Arduino_Motor::__wait_rev_limit() {
+bool Arduino_Motor::__wait_rev_limit() {
+  int count = 20000; // 20 second timeout
   while (digitalRead(__limit_rev)) {
     delay (1);
+    if (__test_fwd_limit()) {
+      Serial.println("Detected forward limit switch waiting for reverse limit switch!");
+      __stop();
+      return false;
+    }
+    --count;
+    if (count <= 0) return false;
   }
+  return true;
 }
 
 // ------------------------------------
@@ -325,10 +484,19 @@ bool Arduino_Motor::__test_not_fwd_limit() {
 
 // ------------------------------------
 // Wait for forward limit switch to release
-void Arduino_Motor::__wait_not_fwd_limit() {
+bool Arduino_Motor::__wait_not_fwd_limit() {
+  int count = 20000; // 20 second timeout
   while (!digitalRead(__limit_fwd)) {
     delay (1);
+    if (__test_rev_limit()) {
+      Serial.println("Detected reverse limit switch waiting for forward limit switch to release!");
+      __stop();
+      return false;
+    }
+    --count;
+    if (count <= 0) return false;
   }
+  return true;
 }
 
 // ------------------------------------
@@ -342,10 +510,19 @@ bool Arduino_Motor::__test_not_rev_limit() {
 
 // ------------------------------------
 // Wait for reverse limit switch to release
-void Arduino_Motor::__wait_not_rev_limit() {
+bool Arduino_Motor::__wait_not_rev_limit() {
+  int count = 20000; // 20 second timeout
   while (!digitalRead(__limit_rev)) {
     delay (1);
+    if (__test_fwd_limit()) {
+      Serial.println("Detected forward limit switch waiting for reverse limit switch to release!");
+      __stop();
+      return false;
+    }
+    --count;
+    if (count <= 0) return false;
   }
+  return true;
 }
 
 // ------------------------------------
@@ -366,6 +543,12 @@ bool Arduino_Motor::__read_sensor() {
 // Calculate current degrees and dispatch status event
 void Arduino_Motor::__do_event(int current_degrees, int deg, int num_pulses, int pulses_to_move) {
   int idegrees;
+
+  //Serial.println("Current deg, deg, num pulses, pulses to move");
+  //Serial.println(current_degrees);
+  //Serial.println(deg);
+  //Serial.println(num_pulses);
+  //Serial.println(pulses_to_move);
   
   if (deg > current_degrees) {
     // Moving forward
