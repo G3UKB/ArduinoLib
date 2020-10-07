@@ -42,6 +42,7 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   // Default speeds
   __speed = 100;
   __backoff_speed = 100;
+  __abort = false;
 }
 
 Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm, int sensor, int limit_fwd_rev, int span) {
@@ -74,6 +75,7 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   // Default speeds
   __speed = 100;
   __backoff_speed = 100;
+  __abort = false;
 }
 
 // ------------------------------------
@@ -392,6 +394,13 @@ bool Arduino_Motor::move_to_position(int deg) {
   return true;
 }
 
+// ------------------------------------
+// Emergency stop
+void Arduino_Motor::emergency_stop() {
+
+  __abort = true;
+  __stop();
+}
 // ==============================================================
 // PRIVATE
 
@@ -441,6 +450,9 @@ bool Arduino_Motor::__wait_fwd_limit() {
       __stop();
       return false;
     }
+    if (__abort) {
+      return false;
+    }
     --count;
     if (count <= 0) return false;
   }
@@ -465,6 +477,9 @@ bool Arduino_Motor::__wait_rev_limit() {
     if (__test_fwd_limit()) {
       Serial.println("Detected forward limit switch waiting for reverse limit switch!");
       __stop();
+      return false;
+    }
+    if (__abort) {
       return false;
     }
     --count;
@@ -493,6 +508,9 @@ bool Arduino_Motor::__wait_not_fwd_limit() {
       __stop();
       return false;
     }
+    if (__abort) {
+      return false;
+    }
     --count;
     if (count <= 0) return false;
   }
@@ -517,6 +535,9 @@ bool Arduino_Motor::__wait_not_rev_limit() {
     if (__test_fwd_limit()) {
       Serial.println("Detected forward limit switch waiting for reverse limit switch to release!");
       __stop();
+      return false;
+    }
+    if (__abort) {
       return false;
     }
     --count;

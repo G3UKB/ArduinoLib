@@ -22,6 +22,7 @@ class Arduino_Motor
   void set_cal(int num_pulses);
   bool move_to_home();
   bool move_to_position(int deg);
+  void emergency_stop();
  
   private:
   // Pin allocations
@@ -45,6 +46,7 @@ class Arduino_Motor
   volatile int __num_pulses;
   volatile int __degrees;
   volatile float __pulses_per_degree;
+  volatile bool __abort;
   
 	// Private method prototypes
 	void __forward(int fwd_speed);
