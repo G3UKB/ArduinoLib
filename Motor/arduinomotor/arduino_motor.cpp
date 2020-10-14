@@ -398,6 +398,7 @@ bool Arduino_Motor::move_to_position(int deg) {
 // Nudge
 void Arduino_Motor::nudge_fwd() {
   int count = 10;
+  if (__test_fwd_limit()) return;
   __forward(__speed);
   while(__test_not_fwd_limit()) {
      if (count-- <= 0) break;
@@ -407,6 +408,7 @@ void Arduino_Motor::nudge_fwd() {
 
 void Arduino_Motor::nudge_rev() {
   int count = 10;
+  if (__test_rev_limit()) return;
   __reverse(__speed);
   while(__test_not_rev_limit()) {
      if (count-- <= 0) break;
