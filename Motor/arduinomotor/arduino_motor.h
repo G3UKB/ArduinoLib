@@ -22,7 +22,8 @@ class Arduino_Motor
   void set_cal(int num_pulses);
   bool move_to_home();
   bool move_to_position(int deg);
-  void emergency_stop();
+  void nudge_fwd();
+  void nudge_rev();
  
   private:
   // Pin allocations

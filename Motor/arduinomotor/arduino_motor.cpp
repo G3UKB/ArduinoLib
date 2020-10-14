@@ -395,12 +395,25 @@ bool Arduino_Motor::move_to_position(int deg) {
 }
 
 // ------------------------------------
-// Emergency stop
-void Arduino_Motor::emergency_stop() {
-
-  __abort = true;
-  __stop();
+// Nudge
+void Arduino_Motor::nudge_fwd() {
+  int count = 10;
+  __forward(__speed);
+  while(__test_not_fwd_limit()) {
+     if (count-- <= 0) break;
+     delay(10);  
+  }
 }
+
+void Arduino_Motor::nudge_rev() {
+  int count = 10;
+  __reverse(__speed);
+  while(__test_not_rev_limit()) {
+     if (count-- <= 0) break;
+     delay(10);  
+  }
+}
+
 // ==============================================================
 // PRIVATE
 
