@@ -270,7 +270,6 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
 // ------------------------------------
 // Move to home position
 bool Arduino_Motor::move_to_home() {
-  //----------------
   if(__calibrated) {
     // Run reverse at moderate speed until we hit reverse limit switch
     __reverse(__speed);
@@ -404,6 +403,7 @@ void Arduino_Motor::nudge_fwd() {
      if (count-- <= 0) break;
      delay(10);  
   }
+  __stop();
 }
 
 void Arduino_Motor::nudge_rev() {
@@ -414,6 +414,7 @@ void Arduino_Motor::nudge_rev() {
      if (count-- <= 0) break;
      delay(10);  
   }
+  __stop();
 }
 
 // ==============================================================
