@@ -167,6 +167,9 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   while(__test_not_fwd_limit()) {
     if(__read_sensor()) {
       __pulse_cnt++;
+    } else {
+      __stop();
+      return -1;
     }
   }
   __stop();
@@ -188,6 +191,9 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   while(__test_fwd_limit()) {
     if(__read_sensor()) {
       __pulse_cnt++;
+    } else {
+      __stop();
+      return -1;
     }
   }
   __stop();
@@ -236,6 +242,9 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   while(__test_not_rev_limit()) {
     if(__read_sensor()) {
       __pulse_cnt++;
+    } else {
+      __stop();
+      return -1;
     }
   }
   __stop();
@@ -257,6 +266,9 @@ Arduino_Motor::Arduino_Motor(int t, void (*func)(int position), int dir, int pwm
   while(__test_rev_limit()) {
     if(__read_sensor()) {
       __pulse_cnt++;
+    } else {
+      __stop();
+      return -1;
     }
   }
   __stop();
@@ -345,6 +357,8 @@ bool Arduino_Motor::move_to_position(int deg) {
             //Serial.println(pulses_to_move);
             if (pulses_to_move <= 0)
               break;
+        } else {
+          return false;
         }
       }
     } else {
@@ -359,6 +373,8 @@ bool Arduino_Motor::move_to_position(int deg) {
             //Serial.println(pulses_to_move);
             if (pulses_to_move <= 0)
               break;
+        } else {
+          return false;
         }
       }
     }
@@ -565,13 +581,21 @@ bool Arduino_Motor::__wait_not_rev_limit() {
 // ------------------------------------
 // Read sensor
 bool Arduino_Motor::__read_sensor() {
+  // If the motor is not movng we must have a timeout
+  // to avoid locking the system.
+  int count = 100;
   // Wait for next pulse
   if (!digitalRead(__sensor)) {
     while (!digitalRead(__sensor)) {
+      if (--count <= 0) return false;
+      delay(1);
     }
   }
   // Wait for end of pulse
+  count = 100;
   while (digitalRead(__sensor)) {
+    if (--count <= 0) return false;
+    delay(1);
   }
     return true;
 }
